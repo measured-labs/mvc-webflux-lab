@@ -8,6 +8,10 @@ server:
 spring:
   application:
     name: mvc-benchmark
+  # 요청 처리 스레드: false = Tomcat 플랫폼 스레드 풀(server.tomcat.threads.max), true = 요청마다 가상 스레드
+  threads:
+    virtual:
+      enabled: ${VIRTUAL_THREADS:false}
 
   datasource:
     url: jdbc:h2:mem:benchmarkdb;DB_CLOSE_DELAY=-1
