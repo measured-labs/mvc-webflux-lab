@@ -8,8 +8,8 @@ LEVELS = [100, 400, 800, 1600]
 
 INVALID = set(open(f'{D}/INVALID.txt').read().split()) if os.path.exists(f'{D}/INVALID.txt') else set()
 RERUN_OK = set()
-if os.path.exists(f'{D}/rerun/rerun.log'):
-    for line in open(f'{D}/rerun/rerun.log'):
+for logf in sorted(glob.glob(f'{D}/rerun/rerun*.log')):
+    for line in open(logf):
         if ' valid ' in line:
             RERUN_OK.add(line.split()[-1])
 USED = []
