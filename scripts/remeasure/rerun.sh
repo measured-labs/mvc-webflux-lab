@@ -40,7 +40,8 @@ outage() {
 }
 
 for tag in $RUNS; do
-  cond=$(echo "$tag" | cut -d- -f2-3); scen=$(echo "$tag" | cut -d- -f4)
+  # 실행 이름 = r<회차>-<조건>-<시나리오> (조건에는 - 가 있을 수 있다: mvc-platform · mvc-virtual · webflux)
+  scen=${tag##*-}; rest=${tag#r*-}; cond=${rest%-*}
   app=$([ "$cond" = webflux ] && echo webflux || echo mvc)
   for try in 1 2 3; do
     echo "$(date -Is) start $tag try=$try" | tee -a "$OUT/rerun.log"
