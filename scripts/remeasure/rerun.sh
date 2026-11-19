@@ -16,7 +16,7 @@ start_app() {
     webflux)      ssh "$APP_HOST" "docker run -d --name mvcwf-target --cpus 2 --memory 1g -p $PORT:8081 -e JAVA_OPTS='-Xms512m -Xmx1024m' mvcwf-webflux:$IMAGE_TAG" ;;
   esac >/dev/null
   for i in $(seq 1 90); do
-    curl -s -o /dev/null -w '%{http_code}' "http://$APP_IP:$PORT/api/simple" | grep -q 200 && return 0
+    curl -s --max-time 2 -o /dev/null -w "%{http_code}" "http://$APP_IP:$PORT/api/simple" | grep -q 200 && return 0
     sleep 1
   done
   return 1
@@ -45,7 +45,7 @@ for tag in $RUNS; do
   for try in 1 2 3; do
     echo "$(date -Is) start $tag try=$try" | tee -a "$OUT/rerun.log"
     start_app "$cond" || { echo "$(date -Is) app not ready $tag" | tee -a "$OUT/rerun.log"; continue; }
-    curl -s "http://$APP_IP:$PORT/api/delay/1" > "$OUT/$tag.thread.json"
+    curl -s --max-time 5 "http://$APP_IP:$PORT/api/delay/1" > "$OUT/$tag.thread.json"
     if ! check_condition "$cond" "$OUT/$tag.thread.json"; then echo "$(date -Is) condition mismatch $tag" | tee -a "$OUT/rerun.log"; continue; fi
     rc=0; ssh "$K6_HOST" "cd ~/mvcwf-k6 && $K6_BIN run --quiet --env BASE_URL=http://$APP_IP:$PORT --env APP_TYPE=$app --summary-export /tmp/$tag.json scenarios/$scen-test.js > /tmp/$tag.log 2>&1" || rc=$?
     scp -q "$K6_HOST:/tmp/$tag.json" "$K6_HOST:/tmp/$tag.log" "$OUT/"
