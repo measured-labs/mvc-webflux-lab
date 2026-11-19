@@ -21,7 +21,9 @@ Thumbs.db
 logs/
 
 # Results
-results/
+# 결과는 기본으로 무시하되, 재측정 원본은 ADR-001 수치의 근거라 추적한다(2026-11-19)
+results/*
+!results/remeasure-20261118/
 
 # H2 Database
 *.db

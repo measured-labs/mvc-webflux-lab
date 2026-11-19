@@ -9,7 +9,10 @@ export function getConfig() {
   const useProxy = __ENV.USE_PROXY === 'true';
 
   let baseUrl;
-  if (useProxy) {
+  if (__ENV.BASE_URL) {
+    // 재측정(2026-11-18): 조건마다 한 앱만 띄우고 같은 포트로 부른다
+    baseUrl = __ENV.BASE_URL;
+  } else if (useProxy) {
     // Nginx 프록시 경유
     baseUrl = `http://${targetHost}/${appType}`;
   } else {

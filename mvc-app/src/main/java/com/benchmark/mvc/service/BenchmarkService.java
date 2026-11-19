@@ -34,7 +34,7 @@ public class BenchmarkService {
 
   public Map<String, Object> getDelayedResponse(int delayMs) {
     try {
-      TimeUnit.MICROSECONDS.sleep(delayMs);
+      TimeUnit.MILLISECONDS.sleep(delayMs);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new RuntimeException(e);

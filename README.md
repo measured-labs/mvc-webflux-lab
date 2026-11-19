@@ -1,6 +1,19 @@
 # Spring MVC vs WebFlux Performance Benchmark
 
-Spring Boot 4.0 + Java 25 기반 Tomcat MVC와 Netty WebFlux 성능 비교 프로젝트
+## 결과와 결론 (2026-11-19 재측정)
+
+동시에 기다리는 요청이 Tomcat 스레드 풀(200개)보다 많아지면 Spring MVC(일반 스레드) · Spring MVC(가상 스레드) · Spring WebFlux의 처리량과 응답 시간이 어떻게 달라지는지 다시 쟀다. 100ms를 기다리는 엔드포인트에 동시 사용자(VU)를 100 · 400 · 800 · 1600으로 올리며 3회씩 잰 결과(중앙값), MVC 일반 스레드는 400 VU부터 1600 VU까지 약 2,000 req/s(이론 상한 200 ÷ 0.1초)에서 더 오르지 않았고, p99가 213 → 422 → 830ms로 VU에 비례해 늘었다. 같은 코드에 가상 스레드만 켜면 1600 VU에서 10,876 req/s(약 5.4배) · p99 581ms였고, WebFlux는 15,002 req/s · p99 146ms로 가장 좋았다. 요청 사이에 쉼이 있는 일반 부하(load · stress)에서는 세 방식의 처리량 · 전체 p95 차이가 1% 안쪽이었다. 결론: 동시성 모델의 차이는 동시에 기다리는 요청이 스레드 수를 넘을 때 드러나고, 이 측정 범위(최대 1600 VU · CPU 2개 · 인공 대기)에서 가상 스레드는 일반 스레드 풀의 약 2,000 req/s 정체를 넘었지만 WebFlux에는 못 미쳤다.
+
+| 동시 사용자(VU) | MVC 일반 스레드 req/s | MVC 가상 스레드 req/s | WebFlux req/s |
+|---:|---:|---:|---:|
+| 400 | 1,987 | 3,868 | 3,960 |
+| 800 | 1,992 | 7,217 | 7,926 |
+| 1600 | 1,999 | 10,876 | 15,002 |
+
+- 조건: 앱 컨테이너 CPU 2개 · 메모리 1G, 앱 서버와 부하 발생 서버(k6) 분리, 실행마다 컨테이너를 새로 띄움. MVC는 요청을 처리한 스레드 이름(`Thread` · `VirtualThread`), WebFlux는 응답의 서버 종류로 조건이 실제로 적용됐는지 확인. 모든 시나리오에서 실패 0%.
+- 측정 중 서버 사이 연결이 약 37분마다 20초 안팎으로 끊겨, 처음 27회 중 7회를 무효 처리하고 다시 쟀다(무효 기준은 처음 측정 뒤 · 다시 재기 전에 정해 커밋으로 고정)(결과는 다시 잰 값 기준).
+- 자세한 결과 · 가설 판정 · 한계: [ADR-001](docs/adr/ADR-001-remeasure-virtual-threads.md) · 원본 [results/remeasure-20261118/](results/remeasure-20261118/) · 측정 전 고정 계획 [docs/measurement/2026-11-18-remeasure-plan.md](docs/measurement/2026-11-18-remeasure-plan.md) · [보완](docs/measurement/2026-11-19-remeasure-addendum.md).
+- **아래 "벤치마크 결과" 절(2025-12 첫 측정)은 결론으로 쓰지 않는다.** MVC의 100ms 대기가 실제로는 100µs만 자는 버그가 있었고(재측정 전에 고침), 가상 스레드를 켠 기록이 저장소에 없다. 이유는 [ADR-000](docs/adr/ADR-000-first-benchmark.md)에 있다.
 
 ## 📋 프로젝트 개요
 
@@ -339,6 +352,8 @@ WebFlux < MVC (이벤트 루프 특성)
 
 ## 📊 벤치마크 결과
 
+> 2025-12 첫 측정 기록이다. 결론으로 쓰지 않는다 — MVC 대기 엔드포인트 버그 · 가상 스레드 설정 기록 없음([ADR-000](docs/adr/ADR-000-first-benchmark.md)). 다시 잰 결과는 맨 위 '결과와 결론'과 [ADR-001](docs/adr/ADR-001-remeasure-virtual-threads.md).
+
 ### 테스트 환경
 
 | 항목 | 사양 |
@@ -431,7 +446,7 @@ WebFlux < MVC (이벤트 루프 특성)
 
 #### 전체 성능 비교
 
-| 지표 | MVC (Tomcat) | WebFlux (Netty) | 승자 |
+| 지표 | MVC (Tomcat) | WebFlux (Netty) | 앞선 쪽 |
 |------|--------------|-----------------|------|
 | **Total Requests** | 79,760 | 76,184 | MVC |
 | **RPS** | **132.66/s** | 126.84/s | MVC (+4.6%) |
@@ -444,7 +459,7 @@ WebFlux < MVC (이벤트 루프 특성)
 
 #### 시스템 리소스 비교
 
-| 지표 | MVC (Tomcat) | WebFlux (Netty) | 승자 |
+| 지표 | MVC (Tomcat) | WebFlux (Netty) | 앞선 쪽 |
 |------|--------------|-----------------|------|
 | **CPU Max** | 19.5% | 33.6% | MVC (42% 적음) |
 | **CPU Mean** | 4.93% | 3.53% | WebFlux |
@@ -454,7 +469,7 @@ WebFlux < MVC (이벤트 루프 특성)
 
 #### 엔드포인트별 p(95) 비교
 
-| 엔드포인트 | MVC | WebFlux | 승자 | 비고 |
+| 엔드포인트 | MVC | WebFlux | 앞선 쪽 | 비고 |
 |-----------|-----|---------|------|------|
 | `/api/simple` | 9.62ms | **7.72ms** | WebFlux | 단순 응답 |
 | `/api/delay/100` | **9.90ms** | 108.20ms | MVC | ⚠️ 10배 차이 |
