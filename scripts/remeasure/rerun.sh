@@ -43,6 +43,7 @@ for tag in $RUNS; do
   # 실행 이름 = r<회차>-<조건>-<시나리오> (조건에는 - 가 있을 수 있다: mvc-platform · mvc-virtual · webflux)
   scen=${tag##*-}; rest=${tag#r*-}; cond=${rest%-*}
   app=$([ "$cond" = webflux ] && echo webflux || echo mvc)
+  ok=0
   for try in 1 2 3; do
     echo "$(date -Is) start $tag try=$try" | tee -a "$OUT/rerun.log"
     start_app "$cond" || { echo "$(date -Is) app not ready $tag" | tee -a "$OUT/rerun.log"; continue; }
@@ -53,8 +54,12 @@ for tag in $RUNS; do
     if [ "$rc" -ne 0 ]; then echo "$(date -Is) k6 rc=$rc $tag" | tee -a "$OUT/rerun.log"; continue; fi
     if outage "$tag"; then echo "$(date -Is) outage detected $tag" | tee -a "$OUT/rerun.log"; continue; fi
     echo "$(date -Is) valid $tag" | tee -a "$OUT/rerun.log"
+    ok=1
     break
   done
+  [ "$ok" = 1 ] || { echo "$(date -Is) gave up $tag" | tee -a "$OUT/rerun.log"; FAILED="${FAILED:-} $tag"; }
 done
 ssh "$APP_HOST" "docker rm -f mvcwf-target >/dev/null 2>&1 || true"
 echo "$(date -Is) rerun done" | tee -a "$OUT/rerun.log"
+# 재시도를 다 써도 유효 실행을 얻지 못한 것이 있으면 실패로 끝낸다
+if [ -n "${FAILED:-}" ]; then echo "유효 실행 없음:${FAILED}" >&2; exit 1; fi
